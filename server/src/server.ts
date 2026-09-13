@@ -1,9 +1,7 @@
 import dotenv from "dotenv";
 import app from "./app";
 import connectDB from "./config/db";
-import {
-  startJoobleScheduler,
-} from "./jobs/jooble.scheduler";
+import { startJoobleScheduler } from "./jobs/jooble.scheduler";
 
 dotenv.config();
 
@@ -36,7 +34,7 @@ const startServer = async () => {
 
   await connectDB();
 
-  // Start scheduled job aggregation
+  // Start the 6-hour job aggregation scheduler
   startJoobleScheduler();
 
   app.listen(PORT, () => {
