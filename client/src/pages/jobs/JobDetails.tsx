@@ -7,10 +7,8 @@ import {
 } from "../../services/jobApi";
 import type { Job } from "../../types/job";
 import { useAuth } from "../../context/AuthContext";
-import axios from "axios";
+import api from "../../services/api";
 
-const API_URL = "http://localhost:5000/api/jobs";
-const APPLICATION_API_URL = "http://localhost:5000/api/applications";
 
 type ApplicationStatus =
   | "Applied"
@@ -103,12 +101,7 @@ useEffect(() => {
       }
 
       try {
-        const response = await axios.get(
-          `${API_URL}/saved`,
-          {
-            withCredentials: true,
-          }
-        );
+const response = await api.get("/jobs/saved");
 
         const savedJobs = response.data.jobs || [];
 
@@ -139,12 +132,7 @@ useEffect(() => {
       }
 
       try {
-        const response = await axios.get(
-          APPLICATION_API_URL,
-          {
-            withCredentials: true,
-          }
-        );
+        const response = await api.get("/applications");
 
         const applications = response.data.applications || [];
 
@@ -184,94 +172,80 @@ useEffect(() => {
   // Save / Unsave Job
   // --------------------------------------------------
   const handleSaveJob = async () => {
-    if (!user) {
-      navigate("/login");
-      return;
+  if (!user) {
+    navigate("/login");
+    return;
+  }
+
+  if (!id) {
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    if (isSaved) {
+      await api.delete(`/jobs/${id}/save`);
+
+      setIsSaved(false);
+    } else {
+      await api.post(`/jobs/${id}/save`);
+
+      setIsSaved(true);
     }
-
-    if (!id) {
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      if (isSaved) {
-        await axios.delete(`${API_URL}/${id}/save`, {
-          withCredentials: true,
-        });
-
-        setIsSaved(false);
-      } else {
-        await axios.post(
-          `${API_URL}/${id}/save`,
-          {},
-          {
-            withCredentials: true,
-          }
-        );
-
-        setIsSaved(true);
-      }
-    } catch (error) {
-      console.error("Save job error:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
+  } catch (error) {
+    console.error("Save job error:", error);
+  } finally {
+    setSaving(false);
+  }
+};
 
   // --------------------------------------------------
   // Mark Job as Applied
   // --------------------------------------------------
   const handleApplyTracking = async () => {
-    if (!user) {
-      navigate("/login");
-      return;
+  if (!user) {
+    navigate("/login");
+    return;
+  }
+
+  if (!id) {
+    return;
+  }
+
+  if (isApplied) {
+    navigate("/applications");
+    return;
+  }
+
+  try {
+    setApplying(true);
+
+    await api.post("/applications", {
+      jobId: id,
+      notes: "",
+    });
+
+    setIsApplied(true);
+    setApplicationStatus("Applied");
+  } catch (error: any) {
+    console.error(
+      "Application tracking error:",
+      error
+    );
+
+    if (
+      error.response?.status === 400 &&
+      error.response?.data?.message
+    ) {
+      alert(error.response.data.message);
+    } else {
+      alert("Failed to track application");
     }
-
-    if (!id) {
-      return;
-    }
-
-    if (isApplied) {
-      navigate("/applications");
-      return;
-    }
-
-    try {
-      setApplying(true);
-
-      await axios.post(
-        APPLICATION_API_URL,
-        {
-          jobId: id,
-          notes: "",
-        },
-        {
-          withCredentials: true,
-        }
-      );
-
-      setIsApplied(true);
-      setApplicationStatus("Applied");
-    } catch (error: any) {
-      console.error(
-        "Application tracking error:",
-        error
-      );
-
-      if (
-        error.response?.status === 400 &&
-        error.response?.data?.message
-      ) {
-        alert(error.response.data.message);
-      } else {
-        alert("Failed to track application");
-      }
-    } finally {
-      setApplying(false);
-    }
-  };
+  } finally {
+    setApplying(false);
+  }
+};
 
   // --------------------------------------------------
   // Back to Jobs

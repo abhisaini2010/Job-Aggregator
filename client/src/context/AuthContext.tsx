@@ -1,4 +1,9 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import api from "../services/api";
 
 interface User {
@@ -14,7 +19,9 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 export const AuthProvider = ({
   children,
@@ -32,8 +39,17 @@ export const AuthProvider = ({
       const response = await api.get("/auth/me");
 
       setUser(response.data.user);
-    } catch (error) {
-      setUser(null);
+    } catch (error: any) {
+      console.error("Refresh user error:", error);
+
+      // Only log the user out when the backend
+      // explicitly says the authentication is invalid.
+      if (error.response?.status === 401) {
+        setUser(null);
+      }
+
+      // For network errors, Render cold starts,
+      // 5xx errors, etc., keep the existing user state.
     } finally {
       setLoading(false);
     }
@@ -78,7 +94,9 @@ export const useAuth = () => {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error("useAuth must be used inside AuthProvider");
+    throw new Error(
+      "useAuth must be used inside AuthProvider"
+    );
   }
 
   return context;
