@@ -49,7 +49,7 @@ router.get("/import", async (req, res) => {
     const result = await importJoobleJobs({
       keywords,
       location,
-      page: 1,
+    
     });
 
     return res.status(200).json({
