@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
 import JobCard from "../components/jobs/JobCard";
 import type { Job } from "../types/job";
 import { useAuth } from "../context/AuthContext";
-
-const API_URL = "http://localhost:5000/api/jobs";
+import api from "../services/api";
 
 const SavedJobs = () => {
   const navigate = useNavigate();
@@ -34,12 +32,7 @@ const SavedJobs = () => {
         setLoading(true);
         setError("");
 
-        const response = await axios.get(
-          `${API_URL}/saved`,
-          {
-            withCredentials: true,
-          }
-        );
+        const response = await api.get("/jobs/saved");
 
         setJobs(response.data.jobs || []);
       } catch (error) {
