@@ -1,7 +1,18 @@
-import Job from "../models/job";
+type JobEmbeddingTextInput = {
+  title?: string;
+  company?: string;
+  location?: string;
+  city?: string | null;
+  country?: string | null;
+  workMode?: string;
+  remoteScope?: string;
+  jobType?: string;
+  skills?: string[];
+  description?: string;
+};
 
 export const buildJobEmbeddingText = (
-  job: InstanceType<typeof Job>
+  job: JobEmbeddingTextInput
 ): string => {
   return [
     `Job Title: ${job.title || ""}`,

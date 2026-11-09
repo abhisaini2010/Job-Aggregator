@@ -1,5 +1,6 @@
 import Job from "../models/job";
 import { normalizeJoobleJob } from "./jooble.normalizer";
+import { addJobEmbeddings } from "./jobEmbedding.service";
 
 const JOOBLE_API_URL = "https://in.jooble.org/api/";
 
@@ -97,11 +98,23 @@ export const importJoobleJobs = async ({
       normalizeJoobleJob(job)
     );
 
+    const jobsToImport = [];
+    const pendingSourceJobIds = new Set<string>();
+    const pendingDuplicateKeys = new Set<string>();
+
     for (const job of normalizedJobs) {
       // Stop immediately once this search has
       // supplied its requested number of new jobs.
-      if (imported >= maxNewJobs) {
+      if (imported + jobsToImport.length >= maxNewJobs) {
         break;
+      }
+
+      if (
+        pendingSourceJobIds.has(String(job.sourceJobId)) ||
+        pendingDuplicateKeys.has(String(job.duplicateKey))
+      ) {
+        skipped++;
+        continue;
       }
 
       const existingJob = await Job.findOne({
@@ -121,6 +134,15 @@ export const importJoobleJobs = async ({
         continue;
       }
 
+      jobsToImport.push(job);
+      pendingSourceJobIds.add(String(job.sourceJobId));
+      pendingDuplicateKeys.add(String(job.duplicateKey));
+    }
+
+    const jobsWithEmbeddings =
+      await addJobEmbeddings(jobsToImport);
+
+    for (const job of jobsWithEmbeddings) {
       const savedJob = await Job.create(job);
 
       console.log(

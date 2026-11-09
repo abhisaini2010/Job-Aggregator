@@ -1,6 +1,8 @@
+import { Types } from "mongoose";
 import Job from "../models/job";
 import { fetchArbeitnowJobs } from "./jobFetcher.service";
 import { normalizeArbeitnowJob } from "./jobNormalizer.service";
+import { addJobEmbeddings } from "./jobEmbedding.service";
 
 type NormalizedArbeitnowJob =
   ReturnType<typeof normalizeArbeitnowJob>;
@@ -123,8 +125,11 @@ export const aggregateJobs = async ({
       }
     }
 
-    // 6. Build database operations
-    const operations: any[] = [];
+    // 6. Select new jobs and existing jobs to refresh
+    const jobsToWrite: Array<{
+      job: NormalizedArbeitnowJob;
+      existingId?: Types.ObjectId;
+    }> = [];
 
     let newJobCandidates = 0;
     let skipped = 0;
@@ -141,15 +146,9 @@ export const aggregateJobs = async ({
         );
 
       if (existingById) {
-        operations.push({
-          updateOne: {
-            filter: {
-              _id: existingById._id,
-            },
-            update: {
-              $set: job,
-            },
-          },
+        jobsToWrite.push({
+          job,
+          existingId: existingById._id,
         });
 
         continue;
@@ -172,24 +171,12 @@ export const aggregateJobs = async ({
         continue;
       }
 
-      operations.push({
-        updateOne: {
-          filter: {
-            source: job.source,
-            sourceJobId: job.sourceJobId,
-          },
-          update: {
-            $set: job,
-          },
-          upsert: true,
-        },
-      });
-
+      jobsToWrite.push({ job });
       newJobCandidates++;
     }
 
     // 7. Nothing to write
-    if (operations.length === 0) {
+    if (jobsToWrite.length === 0) {
       console.log(
         "No Arbeitnow jobs need to be written."
       );
@@ -201,6 +188,40 @@ export const aggregateJobs = async ({
         updated: 0,
         skipped,
       };
+    }
+
+    const jobsWithEmbeddings = await addJobEmbeddings(
+      jobsToWrite.map(({ job }) => job)
+    );
+
+    const operations: Parameters<
+      typeof Job.bulkWrite
+    >[0] = [];
+
+    for (let index = 0; index < jobsToWrite.length; index++) {
+      const { job, existingId } = jobsToWrite[index];
+      const jobWithEmbedding =
+        jobsWithEmbeddings[index];
+
+      if (existingId) {
+        operations.push({
+          updateOne: {
+            filter: { _id: existingId },
+            update: { $set: jobWithEmbedding },
+          },
+        });
+      } else {
+        operations.push({
+          updateOne: {
+            filter: {
+              source: job.source,
+              sourceJobId: job.sourceJobId,
+            },
+            update: { $set: jobWithEmbedding },
+            upsert: true,
+          },
+        });
+      }
     }
 
     // 8. Insert new jobs / update existing jobs

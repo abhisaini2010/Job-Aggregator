@@ -1,5 +1,6 @@
 import Job from "../models/job";
 import { normalizeIndianApiJob } from "./indianApi.normalizer";
+import { addJobEmbeddings } from "./jobEmbedding.service";
 
 const INDIAN_API_URL = "https://jobs.indianapi.in/jobs";
 
@@ -71,8 +72,19 @@ const jobs = Array.isArray(response)
 
   let imported = 0;
   let skipped = 0;
+  const jobsToImport = [];
+  const pendingSourceJobIds = new Set<string>();
+  const pendingDuplicateKeys = new Set<string>();
 
   for (const job of normalizedJobs) {
+   if (
+    pendingSourceJobIds.has(String(job.sourceJobId)) ||
+    pendingDuplicateKeys.has(String(job.duplicateKey))
+   ) {
+    skipped++;
+    continue;
+   }
+
    const existingJob = await Job.findOne({
   $or: [
     {
@@ -90,6 +102,15 @@ const jobs = Array.isArray(response)
       continue;
     }
 
+    jobsToImport.push(job);
+    pendingSourceJobIds.add(String(job.sourceJobId));
+    pendingDuplicateKeys.add(String(job.duplicateKey));
+  }
+
+  const jobsWithEmbeddings =
+    await addJobEmbeddings(jobsToImport);
+
+  for (const job of jobsWithEmbeddings) {
     const savedJob = await Job.create(job);
 
     console.log(

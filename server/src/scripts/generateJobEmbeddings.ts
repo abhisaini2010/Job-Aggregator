@@ -19,8 +19,13 @@ const run = async () => {
   try {
     console.log("🚀 Starting job embedding backfill...");
 
-    if (!process.env.COHERE_API_KEY) {
-      throw new Error("COHERE_API_KEY is not configured");
+    if (
+      !process.env.COHERE_API_KEY &&
+      !process.env.CO_API_KEY
+    ) {
+      throw new Error(
+        "COHERE_API_KEY or CO_API_KEY is not configured"
+      );
     }
 
     // Use the same MongoDB connection used by the main application
